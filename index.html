@@ -6,74 +6,187 @@
   <script>
 
     const colores = {
-      colorBoton: "#050b42"
+      colorBoton: "#050b42",
+      colorBotonContramedida: "#3ed730", 
+      colorMetaFinal: "#fef445",
+      colorSituacionIdeal : "#fac710", 
+      colorSituacionActual: "#f24726",
+      colorDiferencia: "#e6e6e6",
+      colorFlechaPregunta1: "#72e18e",
+      colorFlechaPregunta2: "#2a4aab",
+      colorFlechaPregunta3: "#e96b62",
+      colorFlechaPregunta4: "#3c2196",
+
     };
     const tiposFrame = {
       tipoframe: "FRAME",
       tipoLine: "LINE"
     };
 
-
+    const URL_SERVICES = 'https://eureka-help-asw.azurewebsites.net/';
+   
     var widgets = [];
+    
+
+    findFrameParent = (idElement)=>{
+      return widgets.find(widget => widget.type == tiposFrame.tipoframe && widget.childrenIds.includes(idElement));
+    }
+
+    findElementToUpdate = (idElement)=>{
+        let lineaAux = widgets.find(widget => widget.type == tiposFrame.tipoLine && widget.startWidgetId == idElement);
+        return widgets.find(widget => widget.id == lineaAux.endWidgetId);
+    }
+
+    const getProblemas = async (peticion) => {
+    const response = await fetch(`${URL_SERVICES}problema/`, {
+      method: 'POST',
+      body: JSON.stringify(peticion), 
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+     let respuesta =  await response.json(); 
+     return respuesta.descripcion;
+    }
+
+    const getCausa = async (peticion) => {
+    const response = await fetch(`${URL_SERVICES}causa/`, {
+      method: 'POST',
+      body: JSON.stringify(peticion), 
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+     let respuesta =  await response.json(); 
+     return respuesta.descripcion;
+    }
 
     miro.onReady(() => {
       miro.initialize({
-        extensionPoints: {
-          bottomBar: {
-            title: 'Boton ada',
-            svgIcon: '<circle cx="12" cy="12" r="9" fill="none" fill-rule="evenodd" stroke="currentColor" stroke-width="2"/>',
-            onClick: () => {
-              alert('HOLA MUNDO!')
-            }
-          },
-          toolbar: {
-            title: "Botón ADA",
-            librarySvgIcon:
-              '<circle cx="12" cy="12" r="9" fill="blue" fill-rule="evenodd" stroke="currentColor" stroke-width="2"/>',
-            toolbarSvgIcon:
-              '<circle cx="12" cy="12" r="9" fill="red" fill-rule="evenodd" stroke="currentColor" stroke-width="2"/>',
-            onClick: () => {
-              miro.showNotification("ADA dice HOlA!");
-            },
-          },
-        }
+        // extensionPoints: {
+        //   bottomBar: {
+        //     title: 'Boton ada',
+        //     svgIcon: '<circle cx="12" cy="12" r="9" fill="none" fill-rule="evenodd" stroke="currentColor" stroke-width="2"/>',
+        //     onClick: () => {
+        //       alert('HOLA MUNDO!')
+        //     }
+        //   },
+        //   toolbar: {
+        //     title: "Botón ADA",
+        //     librarySvgIcon:
+        //       '<circle cx="12" cy="12" r="9" fill="blue" fill-rule="evenodd" stroke="currentColor" stroke-width="2"/>',
+        //     toolbarSvgIcon:
+        //       '<circle cx="12" cy="12" r="9" fill="red" fill-rule="evenodd" stroke="currentColor" stroke-width="2"/>',
+        //     onClick: () => {
+        //       miro.showNotification("ADA dice HOlA!");
+        //     },
+        //   },
+        // }
       });
       (async () => {
         widgets = await miro.board.widgets.get();
-        console.log("estos son mis wifgets", widgets);
+        console.log("Widgets", widgets);
       })();
 
       async function handleSelectionUpdated(event) {
         let widgetsHijos = [];
         let widgetSeleccionado;
-        console.log("emtre al al evento")
         if (event.data[0] && event.data[0].id) {
           widgetSeleccionado = widgets.find(widget => widget.id === event.data[0].id);
-
           if (widgetSeleccionado && widgetSeleccionado.style && widgetSeleccionado.style.borderColor == colores.colorBoton) {
+            widgets = await miro.board.widgets.get();
             console.log("el evento es", event);
-            let frame = widgets.find(widget => widget.type == tiposFrame.tipoframe && widget.childrenIds.includes(event.data[0].id));
-            if (frame) {
-              frame.childrenIds.forEach(idChildren => {
-                let widgetHijo = widgets.find(widget => widget.id === idChildren);
-                widgetsHijos.push(widgetHijo);
-              });
+              let lineaProblema = widgets.find(widget => widget.type == tiposFrame.tipoLine && widget.endWidgetId == event.data[0].id);
+              if(lineaProblema){
+                //obtengo un widget de referencia para encontrar el frame donde se encuentra la sección del problema
+                let widgetReferencia = widgets.find(x => x.id == lineaProblema.startWidgetId);
+                let frameReferencia = findFrameParent(widgetReferencia.id);
+                
+                //obtengo los elementos del frame de referencia para extraer sus valores
+                if(frameReferencia){
+                    frameReferencia.childrenIds.forEach(idChildren => {
+                    let widgetHijo = widgets.find(widget => widget.id === idChildren);
+                    widgetsHijos.push(widgetHijo);
+                  });
+                }
+                console.log("Estos son los hijos del frame de referencia ", widgetsHijos);
+                let metaFinalWG = widgetsHijos.find(widget=> widget.style.borderColor == colores.colorMetaFinal); 
+                let situacionActualWG = widgetsHijos.find(widget=> widget.style.borderColor == colores.colorSituacionActual);  
+                let situacionIdealWG = widgetsHijos.find(widget=> widget.style.borderColor == colores.colorSituacionIdeal); 
+                let diferenciaWG = widgetsHijos.find(widget=> widget.style.borderColor == colores.colorDiferencia);  
+                
+                //obtenemos el elemento que se va a actualizar 
+                let elementoActualizar = findElementToUpdate(event.data[0].id);
 
-              let lineaBtn = widgetsHijos.find(widget => (widget.startWidgetId ? widget.startWidgetId == event.data[0].id : false));
-              let widgetActualizar = [];
-              if (lineaBtn) {
-                widgetActualizar = widgetsHijos.find(widget => widget.id == lineaBtn.endWidgetId);
+                //Se arma la peticion al servicio
+                let peticion = {};
+      
+                peticion.problema = diferenciaWG.plainText;
+                peticion.meta = metaFinalWG.plainText;
+                peticion.situacion_ideal = situacionIdealWG.plainText;
+                peticion.situacion_actual = situacionActualWG.plainText;
+                
+                console.log("La peticion al servicio es ", peticion)
+                const rtaProblemas = await getProblemas(peticion);
+                if(elementoActualizar && rtaProblemas){
+                    console.log("Elemento a actualizar", elementoActualizar);
+                    console.log("Respuesta del servicio", rtaProblemas);
+                    let textToShow = "";
+                      for (const it in rtaProblemas) {
+                        textToShow = textToShow.concat(`<p>${(parseInt(it)+1)} . ${rtaProblemas[it]}<br><br></p>`);  
+                      }
+                    /* textToShow = textToShow.concat("</ul>"); */
+                  
+                    miro.board.widgets.update({ id: elementoActualizar.id, text:  textToShow});
+                }
               }
-              console.log("Linea encontrada", lineaBtn);
-              console.log("widgets hijos encontrados", widgetsHijos);
-              console.log("widgets A actualizar", widgetActualizar);
-              if (widgetActualizar) {
-                setTimeout(async () => {
-                  await miro.board.widgets.update({ id: widgetActualizar.id, text: `Esta es la respuesta de ADA numero ramdom es ${Math.random()}` });
-                }, 2000);
-              }
+            
+          }
 
+          if (widgetSeleccionado && widgetSeleccionado.style && widgetSeleccionado.style.borderColor == colores.colorBotonContramedida) {
+            widgets = await miro.board.widgets.get();
+            console.log("Ingreso por el boton de contramedida", event);
+            let widgetsCausaRaiz = [];
+            
+            let lineaReferencia = widgets.find(widget => widget.type == tiposFrame.tipoLine && widget.endWidgetId == event.data[0].id);
+            if(lineaReferencia){
+
+               //obtengo un widget de referencia para encontrar el frame donde se encuentra la sección de causa raiz
+               let widgetReferencia = widgets.find(x => x.id == lineaReferencia.startWidgetId);
+               let frameCausaRaiz = findFrameParent(widgetReferencia.id);
+
+              console.log("Frame causa raiz, ", frameCausaRaiz);
+              frameCausaRaiz.childrenIds.forEach(idChildren => {
+                    let widgetHijo = widgets.find(widget => widget.id === idChildren);
+                    widgetsCausaRaiz.push(widgetHijo);
+                  });
             }
+            console.log("Los hijos en causa raiz", widgetsCausaRaiz);
+            let causa1 = getPreguntasCausaRaiz(widgetsCausaRaiz, colores.colorFlechaPregunta1)
+            let causa2 = getPreguntasCausaRaiz(widgetsCausaRaiz, colores.colorFlechaPregunta2)
+            let causa3 = getPreguntasCausaRaiz(widgetsCausaRaiz, colores.colorFlechaPregunta3)
+            let causa4 = getPreguntasCausaRaiz(widgetsCausaRaiz, colores.colorFlechaPregunta4)
+          
+            let peticion = {}
+            peticion.causa_1 = causa1;
+            peticion.causa_2 = causa2;
+            peticion.causa_3 = causa3;
+            peticion.causa_4 = causa4;
+
+            console.log("La peticion al servicio es ", peticion)
+            const rtaCausa = await getCausa(peticion);
+
+            //obtenemos el elemento que se va a actualizar 
+            let elementoActualizar = findElementToUpdate(event.data[0].id);
+            if(elementoActualizar && rtaCausa){
+                    console.log("Elemento a actualizar", elementoActualizar);
+                    console.log("Respuesta del servicio", rtaCausa);
+                    let textToShow = "";
+                      for (const it in rtaCausa) {
+                        textToShow = textToShow.concat("<p>"+rtaCausa[it]+"</p>");  
+                      }
+                    miro.board.widgets.update({ id: elementoActualizar.id, text:  textToShow});
+                }
           }
 
         }
@@ -81,6 +194,32 @@
       miro.addListener('SELECTION_UPDATED', handleSelectionUpdated);
     });
 
+    getPreguntasCausaRaiz = (widgetsCausaRaiz, colorFila)=>{
+      let flechasPregunta = [];
+    
+        widgetsCausaRaiz.forEach(widget => {
+          if(widget.type == tiposFrame.tipoLine && widget.style.lineColor == colorFila){
+            flechasPregunta.push(widget);
+          }
+        });
+        flechasPregunta = flechasPregunta.sort((a, b)=>a.startPosition.y > b.startPosition.y);
+        let respuesta = "";
+
+        try {
+          flechasPregunta.forEach(linea =>{
+          let widget = widgetsCausaRaiz.find(x => x.id == linea.endWidgetId);
+          if(widget && widget.plainText){
+            respuesta = widget.plainText;
+          }
+        })  
+        } catch (e) {
+          console.log("No se encontro una respuesta", e)
+        }
+        if(respuesta == ""){
+          respuesta = flechasPregunta[0].plainText;
+        }
+        return respuesta;
+    }
 
 
   </script>
